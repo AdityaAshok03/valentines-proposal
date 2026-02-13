@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Will you be my Valentine?</title>
+  <style>
+    body { font-family: system-ui, Arial, sans-serif; display:flex; min-height:100vh; margin:0; align-items:center; justify-content:center; background:#fff5f7; }
+    .card { background:white; padding:24px; border-radius:18px; box-shadow:0 10px 30px rgba(0,0,0,.08); width:min(520px, 92vw); text-align:center; }
+    h1 { margin: 0 0 10px; font-size: 28px; }
+    p { margin: 0 0 18px; opacity:.8; }
+    .btns { position: relative; height: 220px; }
+    button { border:0; border-radius:14px; padding:14px 18px; font-size:18px; cursor:pointer; }
+    #yes { font-weight:700; transform-origin:center; }
+    #no  { position:absolute; left: 55%; top: 55%; }
+    .msg { margin-top: 14px; font-size: 18px; font-weight: 600; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Will you be my Valentine? 💘</h1>
+    <p>Choose wisely… 😄</p>
+
+    <div class="btns" id="stage">
+      <button id="yes">YES</button>
+      <button id="no">NO</button>
+    </div>
+
+    <div class="msg" id="msg"></div>
+  </div>
+
+<script>
+  const yes = document.getElementById('yes');
+  const no = document.getElementById('no');
+  const stage = document.getElementById('stage');
+  const msg = document.getElementById('msg');
+
+  let scale = 1.0;
+
+  function rand(min, max){ return Math.random() * (max - min) + min; }
+
+  no.addEventListener('click', () => {
+    // Grow YES
+    scale *= 1.18;
+    yes.style.transform = `scale(${scale})`;
+
+    // Move NO to a random spot within the stage box
+    const pad = 10;
+    const rect = stage.getBoundingClientRect();
+    const bw = no.offsetWidth;
+    const bh = no.offsetHeight;
+
+    const x = rand(pad, rect.width - bw - pad);
+    const y = rand(pad, rect.height - bh - pad);
+
+    no.style.left = `${x}px`;
+    no.style.top  = `${y}px`;
+
+    msg.textContent = "Are you sure? 😳";
+  });
+
+  yes.addEventListener('click', () => {
+    msg.textContent = "YAY!!! 🥰💐";
+    no.style.display = "none";
+    yes.style.transform = "scale(1.3)";
+    yes.disabled = true;
+  });
+</script>
+</body>
+</html>
