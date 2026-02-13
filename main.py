@@ -30,7 +30,7 @@ class ValentineProposal:
         # Title configuration
         title = tk.Label(
             self.root,
-            text="Will you be my Valentine?",
+            text="AV, Will you be my Valentine?",
             font=('Comic Sans MS', 20, 'bold'),
             bg='#FFE4E1',
             fg='#FF69B4'  # Darker pink for text
