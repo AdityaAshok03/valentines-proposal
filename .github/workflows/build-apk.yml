@@ -1,0 +1,44 @@
+name: Build APK
+
+# Runs automatically whenever you change a file, and can also be started by
+# hand from the Actions tab ("Run workflow").
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build installable APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      - name: Install Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up the Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Compile the app
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Give the APK a friendly name
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
+             will-you-be-my-valentine.apk
+          ls -lh will-you-be-my-valentine.apk
+
+      - name: Upload the APK so you can download it
+        uses: actions/upload-artifact@v4
+        with:
+          name: will-you-be-my-valentine-apk
+          path: will-you-be-my-valentine.apk
+          if-no-files-found: error
