@@ -21,8 +21,20 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      - name: Set up the Android SDK
-        uses: android-actions/setup-android@v3
+      # GitHub's Ubuntu runner already ships the Android SDK, so there is no
+      # third-party action here -- we just make sure the two pieces this app
+      # needs are present and their licences are accepted.
+      - name: Prepare the Android SDK
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "Using Android SDK at: $SDK"
+          SDKMANAGER="$(find "$SDK/cmdline-tools" -name sdkmanager -type f | sort | tail -n 1)"
+          echo "Using sdkmanager at: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
 
       - name: Compile the app
         working-directory: android
