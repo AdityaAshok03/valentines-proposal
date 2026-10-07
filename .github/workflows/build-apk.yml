@@ -42,6 +42,19 @@ jobs:
           chmod +x ./gradlew
           ./gradlew assembleDebug --no-daemon --stacktrace
 
+      # Guards the "one source of truth" setup: if the Gradle copy step ever
+      # silently stops working, the APK would quietly ship a stale page. This
+      # fails the build instead. It compares bytes, so it keeps working no
+      # matter how you reword the app.
+      - name: Check the page really is inside the APK
+        run: |
+          set -euo pipefail
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          unzip -p "$APK" assets/index.html > /tmp/packed-index.html
+          diff -q index.html /tmp/packed-index.html
+          echo "OK: the APK contains exactly this repository's index.html"
+          echo "APK size: $(du -h "$APK" | cut -f1)"
+
       - name: Give the APK a friendly name
         run: |
           cp android/app/build/outputs/apk/debug/app-debug.apk \
