@@ -1,70 +1,392 @@
 <!doctype html>
 <html lang="en">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Will you be my Valentine?</title>
-  <style>
-    body { font-family: system-ui, Arial, sans-serif; display:flex; min-height:100vh; margin:0; align-items:center; justify-content:center; background:#fff5f7; }
-    .card { background:white; padding:24px; border-radius:18px; box-shadow:0 10px 30px rgba(0,0,0,.08); width:min(520px, 92vw); text-align:center; }
-    h1 { margin: 0 0 10px; font-size: 28px; }
-    p { margin: 0 0 18px; opacity:.8; }
-    .btns { position: relative; height: 220px; }
-    button { border:0; border-radius:14px; padding:14px 18px; font-size:18px; cursor:pointer; }
-    #yes { font-weight:700; transform-origin:center; }
-    #no  { position:absolute; left: 55%; top: 55%; }
-    .msg { margin-top: 14px; font-size: 18px; font-weight: 600; }
-  </style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1" />
+<title>Will you be my Valentine?</title>
+<style>
+  /* ---------------------------------------------------------------
+     COLOURS & FONTS  --  safe to change the values after the colons
+     --------------------------------------------------------------- */
+  :root {
+    color-scheme: light;              /* stops phones auto-inverting the pink */
+    --bg-top:    #ffe3ec;
+    --bg-bottom: #ffc2d4;
+    --card:      #ffffff;
+    --ink:       #4a2230;
+    --ink-soft:  #8c6676;
+    --accent:    #e8336d;
+    --yes-bg:    #e8336d;
+    --yes-ink:   #ffffff;
+    --no-bg:     #f4dbe3;
+    --no-ink:    #8c6676;
+    --radius:    22px;
+    --font:      "Segoe UI", system-ui, -apple-system, Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    font-family: var(--font);
+    color: var(--ink);
+    background: linear-gradient(170deg, var(--bg-top), var(--bg-bottom));
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* floating hearts canvas, sits behind everything */
+  #fx {
+    position: fixed;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  #stage {
+    position: relative;
+    z-index: 1;
+    height: 100dvh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: max(16px, env(safe-area-inset-left)) 16px max(16px, env(safe-area-inset-bottom));
+  }
+
+  .screen {
+    position: absolute;
+    width: min(440px, calc(100vw - 32px));
+    background: var(--card);
+    border-radius: var(--radius);
+    box-shadow: 0 18px 50px rgba(135, 30, 70, .18);
+    padding: 30px 24px 34px;
+    text-align: center;
+    opacity: 0;
+    transform: translateY(14px) scale(.97);
+    transition: opacity .42s ease, transform .42s cubic-bezier(.2, .9, .25, 1);
+    pointer-events: none;
+  }
+  .screen.active {
+    opacity: 1;
+    transform: none;
+    pointer-events: auto;
+  }
+
+  h1 {
+    margin: 0 0 10px;
+    font-size: clamp(22px, 7vw, 30px);
+    line-height: 1.22;
+    letter-spacing: -.01em;
+  }
+  .sub {
+    margin: 0 0 24px;
+    font-size: clamp(14px, 4vw, 16px);
+    line-height: 1.5;
+    color: var(--ink-soft);
+  }
+
+  .seal { font-size: 54px; line-height: 1; margin-bottom: 14px; display: block; }
+
+  /* ---- buttons ---- */
+  .row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 14px;
+    align-items: center;
+    justify-content: center;
+    min-height: 120px;
+  }
+  button {
+    font-family: inherit;
+    font-weight: 700;
+    border: 0;
+    border-radius: 999px;
+    cursor: pointer;
+    max-width: 100%;
+    transition: transform .18s ease, opacity .3s ease, font-size .25s ease, padding .25s ease;
+  }
+  button:active { transform: scale(.94); }
+
+  .primary {
+    background: var(--yes-bg);
+    color: var(--yes-ink);
+    font-size: 18px;
+    padding: 15px 30px;
+    box-shadow: 0 8px 20px rgba(232, 51, 109, .32);
+  }
+
+  /* YES grows by font-size + padding (not transform) so the card reflows
+     around it instead of letting it spill outside the white box. */
+  #yes {
+    background: var(--yes-bg);
+    color: var(--yes-ink);
+    font-size: calc(18px * var(--yes-scale, 1));
+    padding: calc(15px * var(--yes-scale, 1)) calc(32px * var(--yes-scale, 1));
+    box-shadow: 0 8px 22px rgba(232, 51, 109, .34);
+  }
+  /* NO shrinks away instead of running off-screen -- a moving target is
+     unplayable with a thumb on a 360px-wide screen. */
+  #no {
+    background: var(--no-bg);
+    color: var(--no-ink);
+    font-size: calc(17px * var(--no-scale, 1));
+    padding: calc(13px * var(--no-scale, 1)) calc(24px * var(--no-scale, 1));
+  }
+  #no.gone { opacity: 0; pointer-events: none; transform: scale(.4) rotate(-12deg); }
+
+  .nudge {
+    margin: 18px 0 0;
+    min-height: 22px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  #sunflower { display: block; margin: 4px auto 0; width: 210px; height: 210px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition-duration: .01ms !important; animation-duration: .01ms !important; }
+  }
+</style>
 </head>
 <body>
-  <div class="card">
-    <h1>Will you be my Valentine? 💘</h1>
-    <p>Choose wisely… 😄</p>
 
-    <div class="btns" id="stage">
-      <button id="yes">YES</button>
-      <button id="no">NO</button>
+<canvas id="fx" aria-hidden="true"></canvas>
+
+<div id="stage">
+
+  <!-- screen 1 : the envelope -->
+  <section class="screen active" id="s-intro">
+    <span class="seal">💌</span>
+    <h1 id="t-open"></h1>
+    <p class="sub" id="t-opensub"></p>
+    <button class="primary" id="open"></button>
+  </section>
+
+  <!-- screen 2 : the question -->
+  <section class="screen" id="s-ask">
+    <h1 id="t-q"></h1>
+    <p class="sub" id="t-qsub"></p>
+    <div class="row">
+      <button id="yes"></button>
+      <button id="no"></button>
     </div>
+    <p class="nudge" id="nudge"></p>
+  </section>
 
-    <div class="msg" id="msg"></div>
-  </div>
+  <!-- screen 3 : she said yes -->
+  <section class="screen" id="s-yay">
+    <h1 id="t-yay"></h1>
+    <p class="sub" id="t-yaysub"></p>
+    <canvas id="sunflower" width="420" height="420" aria-hidden="true"></canvas>
+  </section>
+
+</div>
 
 <script>
-  const yes = document.getElementById('yes');
-  const no = document.getElementById('no');
-  const stage = document.getElementById('stage');
-  const msg = document.getElementById('msg');
+/* =================================================================
+   EVERYTHING YOU'D WANT TO CHANGE IS IN THIS ONE BLOCK.
+   Edit the text between the quotes. Don't remove the quotes or commas.
+   ================================================================= */
+const CONFIG = {
+  herName:     "AV",
 
-  let scale = 1.0;
+  openTitle:   "Hey AV",
+  openSub:     "I've got something to ask you. No pressure. (A little pressure.)",
+  openButton:  "Open it 💝",
 
-  function rand(min, max){ return Math.random() * (max - min) + min; }
+  question:    "Will you be my Valentine?",
+  questionSub: "Take your time. Pick carefully.",
 
-  no.addEventListener('click', () => {
-    // Grow YES
-    scale *= 1.18;
-    yes.style.transform = `scale(${scale})`;
+  yesLabel:    "YES",
 
-    // Move NO to a random spot within the stage box
-    const pad = 10;
-    const rect = stage.getBoundingClientRect();
-    const bw = no.offsetWidth;
-    const bh = no.offsetHeight;
+  // The NO button's label changes each tap, then it gives up and leaves.
+  noLabels: [
+    "No",
+    "Are you sure?",
+    "Really sure?",
+    "Think again…",
+    "Last chance!",
+    "You can't 🙈"
+  ],
+  // Little line that appears under the buttons, one per NO tap.
+  nudges: [
+    "Hmm. Try the other one. 😳",
+    "That button is getting smaller, you know.",
+    "The other one is RIGHT THERE.",
+    "I'm not going anywhere.",
+    "Okay, now you're just being mean 🥺"
+  ],
+  noGaveUp:    "…the No button left. 🙃",
 
-    const x = rand(pad, rect.width - bw - pad);
-    const y = rand(pad, rect.height - bh - pad);
+  yayTitle:    "YAY!!! 🥰",
+  yaySub:      "You just made me the happiest. Happy Valentine's Day 💐"
+};
+/* ================= end of the editable block ===================== */
 
-    no.style.left = `${x}px`;
-    no.style.top  = `${y}px`;
 
-    msg.textContent = "Are you sure? 😳";
-  });
+/* ---------- wire the text into the page ---------- */
+const $ = id => document.getElementById(id);
+$("t-open").textContent    = CONFIG.openTitle;
+$("t-opensub").textContent = CONFIG.openSub;
+$("open").textContent      = CONFIG.openButton;
+$("t-q").textContent       = CONFIG.question;
+$("t-qsub").textContent    = CONFIG.questionSub;
+$("yes").textContent       = CONFIG.yesLabel;
+$("no").textContent        = CONFIG.noLabels[0];
+$("t-yay").textContent     = CONFIG.yayTitle;
+$("t-yaysub").textContent  = CONFIG.yaySub;
+document.title             = CONFIG.question;
 
-  yes.addEventListener('click', () => {
-    msg.textContent = "YAY!!! 🥰💐";
-    no.style.display = "none";
-    yes.style.transform = "scale(1.3)";
-    yes.disabled = true;
-  });
+
+/* ---------- screen switching ---------- */
+function show(id) {
+  document.querySelectorAll(".screen").forEach(s => s.classList.remove("active"));
+  $(id).classList.add("active");
+}
+$("open").addEventListener("click", () => show("s-ask"));
+
+
+/* ---------- the YES / NO game ---------- */
+const YES_MAX = 2.3;   // YES stops growing here so it can't break the card
+const NO_MIN  = 0.52;  // NO stops shrinking here so it stays tappable
+let taps = 0;
+
+$("no").addEventListener("click", () => {
+  taps++;
+
+  const yesScale = Math.min(YES_MAX, 1 + taps * 0.26);
+  const noScale  = Math.max(NO_MIN, 1 - taps * 0.1);
+  $("yes").style.setProperty("--yes-scale", yesScale.toFixed(3));
+  $("no").style.setProperty("--no-scale", noScale.toFixed(3));
+
+  if (taps < CONFIG.noLabels.length) {
+    $("no").textContent = CONFIG.noLabels[taps];
+    $("nudge").textContent = CONFIG.nudges[Math.min(taps - 1, CONFIG.nudges.length - 1)];
+  } else {
+    // out of excuses: the NO button bows out rather than trapping her
+    $("no").classList.add("gone");
+    $("nudge").textContent = CONFIG.noGaveUp;
+  }
+});
+
+$("yes").addEventListener("click", () => {
+  show("s-yay");
+  burst();
+  drawSunflower();
+});
+
+
+/* ---------- floating hearts in the background ---------- */
+const fx  = $("fx");
+const ctx = fx.getContext("2d");
+let W, H, dpr, hearts = [];
+
+function resize() {
+  dpr = Math.min(window.devicePixelRatio || 1, 2);
+  W = fx.clientWidth;
+  H = fx.clientHeight;
+  fx.width  = Math.round(W * dpr);
+  fx.height = Math.round(H * dpr);
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+window.addEventListener("resize", resize);
+resize();
+
+function heartPath(c, x, y, s) {
+  c.beginPath();
+  c.moveTo(x, y + s * 0.3);
+  c.bezierCurveTo(x,            y - s * 0.3, x - s,        y - s * 0.1, x - s,        y + s * 0.35);
+  c.bezierCurveTo(x - s,        y + s * 0.9,  x - s * 0.1,  y + s * 1.1, x,            y + s * 1.5);
+  c.bezierCurveTo(x + s * 0.1,  y + s * 1.1,  x + s,        y + s * 0.9, x + s,        y + s * 0.35);
+  c.bezierCurveTo(x + s,        y - s * 0.1,  x,            y - s * 0.3, x,            y + s * 0.3);
+  c.closePath();
+}
+
+function spawn(n, fast) {
+  for (let i = 0; i < n; i++) {
+    hearts.push({
+      x: Math.random() * W,
+      y: H + Math.random() * (fast ? 40 : H),
+      s: 5 + Math.random() * 13,
+      vy: (fast ? 1.6 : 0.35) + Math.random() * (fast ? 2.4 : 0.7),
+      drift: (Math.random() - 0.5) * 0.7,
+      rot: Math.random() * Math.PI,
+      spin: (Math.random() - 0.5) * 0.02,
+      alpha: 0.18 + Math.random() * 0.4
+    });
+  }
+}
+spawn(22, false);
+
+function burst() { spawn(55, true); }
+
+function tick() {
+  ctx.clearRect(0, 0, W, H);
+  for (const h of hearts) {
+    h.y -= h.vy;
+    h.x += h.drift;
+    h.rot += h.spin;
+    ctx.save();
+    ctx.translate(h.x, h.y);
+    ctx.rotate(h.rot);
+    ctx.globalAlpha = h.alpha;
+    ctx.fillStyle = "#e8336d";
+    heartPath(ctx, 0, 0, h.s);
+    ctx.fill();
+    ctx.restore();
+  }
+  // recycle anything that drifted off the top
+  hearts = hearts.filter(h => h.y > -60);
+  if (hearts.length < 22) spawn(1, false);
+  requestAnimationFrame(tick);
+}
+requestAnimationFrame(tick);
+
+
+/* ---------- the sunflower, redrawn from the original Python turtle script ---------- */
+function drawSunflower() {
+  const cv = $("sunflower");
+  const c  = cv.getContext("2d");
+  const cx = cv.width / 2, cy = cv.height / 2;
+  c.clearRect(0, 0, cv.width, cv.height);
+
+  // petals: two offset rings of ellipses
+  for (let ring = 0; ring < 2; ring++) {
+    const count = ring === 0 ? 20 : 16;
+    const len   = ring === 0 ? 150 : 120;
+    for (let i = 0; i < count; i++) {
+      const a = (i / count) * Math.PI * 2 + (ring ? Math.PI / count : 0);
+      c.save();
+      c.translate(cx, cy);
+      c.rotate(a);
+      c.fillStyle = ring === 0 ? "#ffa216" : "#ffb845";
+      c.beginPath();
+      c.ellipse(len * 0.46, 0, len * 0.44, 15, 0, 0, Math.PI * 2);
+      c.fill();
+      c.restore();
+    }
+  }
+
+  // seed head: golden-angle spiral, same maths as sunflower.py
+  const GOLDEN = 137.508 * Math.PI / 180;
+  c.fillStyle = "#8b4513";
+  c.beginPath();
+  c.arc(cx, cy, 62, 0, Math.PI * 2);
+  c.fill();
+  for (let i = 0; i < 190; i++) {
+    const r = 4.6 * Math.sqrt(i);
+    const t = i * GOLDEN;
+    c.beginPath();
+    c.arc(cx + r * Math.cos(t), cy + r * Math.sin(t), 2.6, 0, Math.PI * 2);
+    c.fillStyle = i % 2 ? "#5c2f0d" : "#3f2008";
+    c.fill();
+  }
+}
 </script>
 </body>
 </html>

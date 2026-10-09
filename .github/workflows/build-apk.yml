@@ -1,0 +1,69 @@
+name: Build APK
+
+# Runs automatically whenever you change a file, and can also be started by
+# hand from the Actions tab ("Run workflow").
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build installable APK
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Get the code
+        uses: actions/checkout@v4
+
+      - name: Install Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      # GitHub's Ubuntu runner already ships the Android SDK, so there is no
+      # third-party action here -- we just make sure the two pieces this app
+      # needs are present and their licences are accepted.
+      - name: Prepare the Android SDK
+        run: |
+          set -euo pipefail
+          SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-/usr/local/lib/android/sdk}}"
+          echo "Using Android SDK at: $SDK"
+          SDKMANAGER="$(find "$SDK/cmdline-tools" -name sdkmanager -type f | sort | tail -n 1)"
+          echo "Using sdkmanager at: $SDKMANAGER"
+          yes | "$SDKMANAGER" --licenses > /dev/null 2>&1 || true
+          "$SDKMANAGER" "platform-tools" "platforms;android-35" "build-tools;35.0.0"
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+
+      - name: Compile the app
+        working-directory: android
+        run: |
+          chmod +x ./gradlew
+          ./gradlew assembleDebug --no-daemon --stacktrace
+
+      # Guards the "one source of truth" setup: if the Gradle copy step ever
+      # silently stops working, the APK would quietly ship a stale page. This
+      # fails the build instead. It compares bytes, so it keeps working no
+      # matter how you reword the app.
+      - name: Check the page really is inside the APK
+        run: |
+          set -euo pipefail
+          APK=android/app/build/outputs/apk/debug/app-debug.apk
+          unzip -p "$APK" assets/index.html > /tmp/packed-index.html
+          diff -q index.html /tmp/packed-index.html
+          echo "OK: the APK contains exactly this repository's index.html"
+          echo "APK size: $(du -h "$APK" | cut -f1)"
+
+      - name: Give the APK a friendly name
+        run: |
+          cp android/app/build/outputs/apk/debug/app-debug.apk \
+             will-you-be-my-valentine.apk
+          ls -lh will-you-be-my-valentine.apk
+
+      - name: Upload the APK so you can download it
+        uses: actions/upload-artifact@v4
+        with:
+          name: will-you-be-my-valentine-apk
+          path: will-you-be-my-valentine.apk
+          if-no-files-found: error

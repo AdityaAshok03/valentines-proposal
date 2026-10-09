@@ -1,0 +1,21 @@
+# Generated: Gradle copies the root index.html here on every build.
+android/app/src/main/assets/index.html
+
+# Gradle / Android build output
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+.gradle/
+build/
+*.apk
+*.aab
+
+# Editors
+.idea/
+*.iml
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
